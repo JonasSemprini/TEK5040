@@ -106,11 +106,10 @@ def calculate_returns(rewards, gamma):
 
 
     returns = np.zeros(len(rewards), dtype=np.float32)
-    #returns[-1] = rewards[-1]
-    for k in range(len(rewards) - 1):
-        returns[k+1] = returns[k] + gamma*rewards[k+1]
-    
-    # TODO: Calculate returns
+    returns[-1] = (gamma**(rewards[-1]))*rewards[-1]
+    for t in reversed(range(1, len(returns))):
+        returns[t-1] = rewards[t-1] + gamma*returns[t]
+
     return returns
 
 def value_loss(target, prediction):
@@ -144,9 +143,9 @@ def policy_loss(pi_a, pi_old_a, advantage, epsilon):
     """
 
     # TODO: implement policy loss
-    #loss = tf.constant(0, dtype=tf.float32)
+
     u =  pi_a/pi_old_a 
-    loss_policy = -tf.reduce_mean(tf.minimum(u*advantage, tf.clip_by_value(u, 1-epsilon, 1 + epsilon)*advantage))
+    loss_policy = tf.reduce_mean(-tf.minimum(u*advantage, tf.clip_by_value(u, 1-epsilon, 1 + epsilon)*advantage))
     return loss_policy
 
 def estimate_improvement(pi_a, pi_old_a, advantage, t, gamma):
@@ -199,7 +198,7 @@ def estimate_improvement_lb(pi_a, pi_old_a, advantage, t, gamma, epsilon):
     A = advantage
     f = pi_a / pi_old_a
     f_clipped = tf.clip_by_value(f, 1-epsilon, 1+epsilon)
-    return tf.minimum(f*A, f_clipped*A)*gamma**t - A*gamma**t
+    return tf.minimum(f*A, f_clipped*A)*gamma**t 
 
 def entropy(p):
     """Entropy base 2, for each sample in batch."""
@@ -278,10 +277,10 @@ def main():
     # possibly share parameters with policy-network
     value_network = ValueNetwork(feature_extractor)
 
-    iterations = 10 #500 
+    iterations = 500#500 
     K = 3
-    num_episodes = 4 #8
-    maxlen_environment = 12#512
+    num_episodes = 8 #8
+    maxlen_environment = 512 #512
     action_repeat = 4
     maxlen = maxlen_environment // action_repeat # max number of actions
     batch_size = 32
@@ -323,7 +322,6 @@ def main():
     kl_divergence = losses.KLDivergence(reduction=losses.Reduction.NONE)
 
     for iteration in range(start_iteration, iterations):
-
         # linearly decay alpha, change epsilon and learning rate accordingly
         alpha = (alpha_start-alpha_end)*(iterations-iteration)/iterations+alpha_end
         epsilon = init_epsilon * alpha # clipping paramter
@@ -358,11 +356,6 @@ def main():
 
                     loss = policy_loss(pi_a, pi_old_a, advantage, epsilon) + c1*value_loss(value_target, v) + c2 *entropy_loss(pi)
                 
-                """ trainable_variables = policy_network.trainable_variables + value_network.trainable_variables
-                # Get unique list of variables, just adding lists may cause issues if shared variables
-                trainable_variables = list({v.name : v for v in trainable_variables}.values())
-                grads = tape.gradient(loss, trainable_variables)
-                optimizer.apply_gradients(zip(grads, trainable_variables)) """
                 train_p_value = value_network.trainable_variables
                 gradv = tape.gradient(loss, train_p_value)
                 optimizer.apply_gradients(zip(gradv,train_p_value))
@@ -413,7 +406,7 @@ def main():
                               tf.reduce_sum(diff)/num_episodes, step=step)
             tf.summary.scalar("estimated_improvement_lb",
                               tf.reduce_sum(diff_lb)/num_episodes, step=step)
-            tf.summary.scalar("mean_advantage", tf.reduce_mean(advantages), step=step)
+            tf.summary.scalar("code --in-process-gpu .mean_advantage", tf.reduce_mean(advantages), step=step)
             tf.summary.histogram("entropy", entropies, step=step)
             tf.summary.histogram("prob_ratios", ratios, step=step)
             tf.summary.scalar("mean_entropy", tf.reduce_mean(entropies), step=step)
@@ -466,3 +459,11 @@ def main():
 if __name__ == '__main__':
 
     main()
+
+    ### N = 1 ==== > min, max : (70.9091, 224.755) median, mean : (145.822, 148.842)
+
+    ### N = 2 ==== > min, max : (92.8527, 266.853) median, mean : (161.191, 167.016)
+
+    ### N = 4 ==== > min, max : (91.1111, 254.131) median, mean : (171.428, 171.379)
+
+    ### N = 8 ==== > min, max : (62.7068, 192.121) median, mean : (133.045, 133.691)
