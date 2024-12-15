@@ -277,7 +277,7 @@ def main():
     # possibly share parameters with policy-network
     value_network = ValueNetwork(feature_extractor)
 
-    iterations = 500 #500 
+    iterations = 500#500 
     K = 3
     num_episodes = 8 #8
     maxlen_environment = 512 #512

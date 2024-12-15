@@ -86,8 +86,7 @@ class PolicyNetwork(tf.keras.Model):
 
         logits = self.policy(x)
         action = self._sample_action(logits)
-        print("Policy")
-        print(action.shape)
+
         return action
 
 class ValueNetwork(tf.keras.Model):
@@ -116,6 +115,5 @@ class ValueNetwork(tf.keras.Model):
             x = activations.relu(x)
 
         v = tf.squeeze(self.value(x), axis=-1)
-        print(v.shape)
-        print("Value")
+
         return v
